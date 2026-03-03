@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ireland Trip Planner ☘️</title>
+
+  <!-- Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:ital,wght@0,300;0,400;0,700;1,400&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    /* ============================================================
+       COLOUR PALETTE  — Irish Green + Gold + White
+       ============================================================ */
+    :root {
+      --g-darkest:  #0d2318;
+      --g-dark:     #1a3a2a;
+      --g-mid:      #2d6a4f;
+      --g-light:    #52b788;
+      --g-pale:     #d8f3dc;
+      --g-bg:       #f0f7f2;
+      --gold:       #c9a227;
+      --gold-light: #f0d060;
+      --orange:     #e07b39;
+      --white:      #ffffff;
+      --text-dark:  #1a2a20;
+      --text-mid:   #3d5a47;
+      --border:     #a8d5b5;
+      --shadow:     rgba(45,106,79,0.15);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Lato', sans-serif;
+      background: var(--g-bg);
+      color: var(--text-dark);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Subtle Celtic ring tiling */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='40' cy='40' r='30' fill='none' stroke='%232d6a4f' stroke-opacity='0.06' stroke-width='2'/%3E%3Ccircle cx='40' cy='40' r='18' fill='none' stroke='%232d6a4f' stroke-opacity='0.04' stroke-width='1.5'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ============================================================
+       MODAL — Handle prompt
+       ============================================================ */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10,25,15,0.82);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(6px);
+    }
+    .modal-overlay.hidden { display: none; }
+
+    .modal {
+      background: var(--white);
+      border-radius: 20px;
+      padding: 44px 40px 40px;
+      max-width: 460px;
+      width: 92%;
+      text-align: center;
+      border: 3px solid var(--g-light);
+      box-shadow: 0 24px 70px rgba(0,0,0,0.35);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* gold top-bar accent */
+    .modal::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 5px;
+      background: linear-gradient(90deg, var(--g-mid), var(--gold), var(--g-mid));
+    }
+
+    .modal-shamrock  { font-size: 64px; margin-bottom: 10px; }
+    .modal h2 {
+      font-family: 'Cinzel', serif;
+      color: var(--g-mid);
+      font-size: 1.85rem;
+      margin-bottom: 6px;
+    }
+    .modal .modal-sub {
+      color: var(--text-mid);
+      font-size: 0.95rem;
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+    .modal input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 1.05rem;
+      font-family: 'Lato', sans-serif;
+      margin-bottom: 14px;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .modal input:focus { border-color: var(--g-mid); }
+    .modal-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--g-mid), var(--g-dark));
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.05rem;
+      font-family: 'Lato', sans-serif;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: .03em;
+      transition: opacity .2s, transform .15s;
+    }
+    .modal-btn:hover { opacity: .9; transform: translateY(-1px); }
+
+    /* ============================================================
+       HEADER
+       ============================================================ */
+    header {
+      position: relative;
+      z-index: 10;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, var(--g-darkest) 0%, var(--g-dark) 60%, var(--g-mid) 100%);
+      color: white;
+      padding: 14px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 3px solid var(--gold);
+    }
+
+    .hdr-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .hdr-flag { font-size: 1.8rem; }
+    .hdr-title {
+      font-family: 'Cinzel', serif;
+      font-size: 1.35rem;
+      letter-spacing: .06em;
+    }
+    .hdr-sub {
+      font-size: .8rem;
+      opacity: .75;
+      margin-top: 2px;
+      font-style: italic;
+    }
+
+    .hdr-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .8rem;
+      opacity: .85;
+    }
+    .live-dot {
+      width: 8px; height: 8px;
+      background: #4ade80;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    .offline-dot { background: #f87171; animation: none; }
+
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: .3; }
+    }
+
+    .handle-chip {
+      background: rgba(255,255,255,.14);
+      border: 1.5px solid rgba(255,255,255,.3);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: .88rem;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .handle-chip:hover { background: rgba(255,255,255,.25); }
+
+    /* ============================================================
+       MAIN LAYOUT
+       ============================================================ */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ============================================================
+       CHAT PANEL (left)
+       ============================================================ */
+    .chat-panel {
+      width: 370px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--white);
+      border-right: 2px solid var(--border);
+    }
+
+    .panel-hdr {
+      padding: 12px 18px;
+      background: var(--g-pale);
+      border-bottom: 1px solid var(--border);
+      font-family: 'Cinzel', serif;
+      font-size: .9rem;
+      color: var(--g-mid);
+      font-weight: 600;
+      letter-spacing: .03em;
+      flex-shrink: 0;
+    }
+
+    .chat-feed {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 14px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* chat bubbles */
+    .chat-msg { display: flex; flex-direction: column; gap: 4px; }
+    .chat-msg.own   { align-items: flex-end; }
+    .chat-msg.other { align-items: flex-start; }
+
+    .msg-meta {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: .76rem;
+      color: var(--text-mid);
+    }
+
+    .msg-handle { font-weight: 700; color: var(--g-mid); }
+
+    .cat-tag {
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .tag-general    { background: #e5e7eb; color: #374151; }
+    .tag-activities { background: #d1fae5; color: #065f46; }
+    .tag-dates      { background: #fef3c7; color: #92400e; }
+    .tag-stay       { background: #dbeafe; color: #1e40af; }
+    .tag-food       { background: #fce7f3; color: #9d174d; }
+
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 14px;
+      max-width: 278px;
+      line-height: 1.55;
+      font-size: .92rem;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+    .chat-msg.own   .bubble {
+      background: var(--g-mid);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    .chat-msg.other .bubble {
+      background: var(--g-pale);
+      color: var(--text-dark);
+      border-bottom-left-radius: 4px;
+    }
+
+    .msg-time { font-size: .7rem; color: #9ca3af; }
+
+    /* ============================================================
+       INPUT AREA
+       ============================================================ */
+    .input-area {
+      padding: 12px 14px;
+      border-top: 2px solid var(--border);
+      background: var(--g-pale);
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      flex-shrink: 0;
+    }
+
+    .cat-select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-family: 'Lato', sans-serif;
+      font-size: .9rem;
+      background: white;
+      color: var(--text-dark);
+      cursor: pointer;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .cat-select:focus { border-color: var(--g-mid); }
+
+    .input-row { display: flex; gap: 8px; }
+
+    .msg-input {
+      flex: 1;
+      padding: 10px 13px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-family: 'Lato', sans-serif;
+      font-size: .93rem;
+      outline: none;
+      resize: none;
+      min-height: 44px;
+      max-height: 110px;
+      transition: border-color .2s;
+      line-height: 1.45;
+    }
+    .msg-input:focus { border-color: var(--g-mid); }
+
+    .send-btn {
+      padding: 10px 16px;
+      background: linear-gradient(135deg, var(--g-mid), var(--g-dark));
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 1.3rem;
+      line-height: 1;
+      transition: transform .15s, opacity .2s;
+      flex-shrink: 0;
+      align-self: flex-end;
+    }
+    .send-btn:hover   { transform: scale(1.08); opacity: .9; }
+    .send-btn:active  { transform: scale(.97); }
+    .send-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+    .input-hint {
+      font-size: .72rem;
+      color: var(--text-mid);
+      text-align: right;
+      opacity: .7;
+    }
+
+    /* ============================================================
+       BOARD PANEL (right)
+       ============================================================ */
+    .board-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .board-hdr {
+      padding: 10px 18px;
+      background: var(--g-pale);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .board-title {
+      font-family: 'Cinzel', serif;
+      font-size: .9rem;
+      color: var(--g-mid);
+      font-weight: 600;
+      letter-spacing: .03em;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 2px solid var(--border);
+      background: white;
+      color: var(--text-mid);
+      font-size: .82rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s;
+      font-family: 'Lato', sans-serif;
+    }
+    .tab:hover { border-color: var(--g-mid); color: var(--g-mid); }
+    .tab.active { background: var(--g-mid); color: white; border-color: var(--g-mid); }
+
+    .board-count {
+      font-size: .78rem;
+      color: var(--text-mid);
+      font-style: italic;
+      padding: 4px 10px;
+      background: white;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    /* card grid */
+    .board-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 14px;
+      align-content: start;
+    }
+
+    .idea-card {
+      background: white;
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 2px 10px var(--shadow);
+      border-left: 5px solid var(--g-light);
+      transition: transform .2s, box-shadow .2s;
+      animation: slideIn .28s ease;
+    }
+    .idea-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px var(--shadow);
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .idea-card.card-general    { border-left-color: #9ca3af; }
+    .idea-card.card-activities { border-left-color: #10b981; }
+    .idea-card.card-dates      { border-left-color: #f59e0b; }
+    .idea-card.card-stay       { border-left-color: #3b82f6; }
+    .idea-card.card-food       { border-left-color: #ec4899; }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .card-handle {
+      font-weight: 700;
+      color: var(--g-mid);
+      font-size: .88rem;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .card-time { font-size: .72rem; color: #9ca3af; white-space: nowrap; }
+
+    .card-text {
+      font-size: .93rem;
+      line-height: 1.55;
+      color: var(--text-dark);
+      margin-bottom: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* empty state */
+    .empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 70px 20px;
+      color: var(--text-mid);
+    }
+    .empty-icon { font-size: 56px; margin-bottom: 14px; }
+    .empty-state h3 {
+      font-family: 'Cinzel', serif;
+      font-size: 1.15rem;
+      margin-bottom: 8px;
+      color: var(--g-mid);
+    }
+    .empty-state p { font-size: .9rem; opacity: .75; }
+
+    /* ============================================================
+       TOAST NOTIFICATION
+       ============================================================ */
+    .toast {
+      position: fixed;
+      bottom: 22px;
+      right: 22px;
+      background: var(--g-dark);
+      color: white;
+      padding: 11px 20px;
+      border-radius: 10px;
+      font-size: .88rem;
+      z-index: 900;
+      border-left: 4px solid var(--gold);
+      box-shadow: 0 6px 20px rgba(0,0,0,.25);
+      animation: toastIn .3s ease;
+      max-width: 300px;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .toast.fade-out { animation: toastOut .4s ease forwards; }
+    @keyframes toastOut {
+      to { opacity: 0; transform: translateY(12px); }
+    }
+
+    /* ============================================================
+       DEMO-MODE BANNER
+       ============================================================ */
+    .demo-banner {
+      background: linear-gradient(90deg, #92400e, #b45309);
+      color: #fef3c7;
+      text-align: center;
+      padding: 7px 16px;
+      font-size: .82rem;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 9;
+    }
+    .demo-banner a { color: #fbbf24; font-weight: 700; }
+    .demo-banner.hidden { display: none; }
+
+    /* ============================================================
+       SCROLLBAR
+       ============================================================ */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--g-light); }
+
+    /* ============================================================
+       RESPONSIVE
+       ============================================================ */
+    @media (max-width: 720px) {
+      .main { flex-direction: column; }
+      .chat-panel { width: 100%; height: 48vh; border-right: none; border-bottom: 2px solid var(--border); }
+      .board-panel { height: 52vh; }
+      .hdr-title { font-size: 1rem; }
+      .hdr-sub { display: none; }
+      .board-hdr { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================
+     HANDLE MODAL
+     ============================================================ -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-shamrock">☘️</div>
+    <h2>Céad Míle Fáilte!</h2>
+    <p class="modal-sub">A hundred thousand welcomes!<br>Enter your name or nickname to join the Ireland trip planner and share your ideas with the gang.</p>
+    <input type="text" id="handleInput" placeholder="Your name or handle…" maxlength="30" autocomplete="off" />
+    <button class="modal-btn" onclick="setHandle()">Join the Planning! 🍀</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     DEMO MODE BANNER  (hidden when Supabase is configured)
+     ============================================================ -->
+<div class="demo-banner" id="demoBanner">
+  ⚠️ <strong>Demo mode</strong> — ideas are saved locally on this device only. To share with friends, add your Supabase credentials. See <a href="SETUP.md" target="_blank">SETUP.md</a>.
+</div>
+
+<!-- ============================================================
+     HEADER
+     ============================================================ -->
+<header>
+  <div class="hdr-left">
+    <span class="hdr-flag">🇮🇪</span>
+    <div>
+      <div class="hdr-title">☘️ Ireland Trip Planner</div>
+      <div class="hdr-sub">Share ideas &amp; plan the craic with your friends!</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="live-badge">
+      <div class="live-dot" id="liveDot"></div>
+      <span id="liveLabel">Connecting…</span>
+    </div>
+    <div class="handle-chip" onclick="changeHandle()" title="Click to change your handle">
+      👤 <span id="headerHandle">…</span>
+    </div>
+  </div>
+</header>
+
+<!-- ============================================================
+     MAIN
+     ============================================================ -->
+<div class="main">
+
+  <!-- ── CHAT PANEL ── -->
+  <div class="chat-panel">
+    <div class="panel-hdr">💬 Live Chat Feed</div>
+
+    <div class="chat-feed" id="chatFeed">
+      <!-- populated by JS -->
+    </div>
+
+    <div class="input-area">
+      <select class="cat-select" id="categorySelect">
+        <option value="general">💬 General</option>
+        <option value="activities">🎯 Things To Do</option>
+        <option value="dates">📅 Available Dates</option>
+        <option value="stay">🏠 Places To Stay</option>
+        <option value="food">🍺 Food &amp; Pubs</option>
+      </select>
+      <div class="input-row">
+        <textarea
+          class="msg-input"
+          id="messageInput"
+          placeholder="Share an idea, date, place…"
+          rows="1"
+        ></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send (Enter)">☘️</button>
+      </div>
+      <div class="input-hint">Enter to send &nbsp;·&nbsp; Shift+Enter for new line</div>
+    </div>
+  </div>
+
+  <!-- ── BOARD PANEL ── -->
+  <div class="board-panel">
+    <div class="board-hdr">
+      <div class="board-title">📌 Idea Board</div>
+      <div class="tabs">
+        <button class="tab active" onclick="filterBoard('all')"        id="tab-all">All</button>
+        <button class="tab"        onclick="filterBoard('activities')" id="tab-activities">🎯 To Do</button>
+        <button class="tab"        onclick="filterBoard('dates')"      id="tab-dates">📅 Dates</button>
+        <button class="tab"        onclick="filterBoard('stay')"       id="tab-stay">🏠 Stay</button>
+        <button class="tab"        onclick="filterBoard('food')"       id="tab-food">🍺 Food &amp; Pubs</button>
+        <button class="tab"        onclick="filterBoard('general')"    id="tab-general">💬 General</button>
+      </div>
+      <div class="board-count" id="boardCount">0 ideas</div>
+    </div>
+
+    <div class="board-content" id="boardContent">
+      <!-- populated by JS -->
+    </div>
+  </div>
+
+</div><!-- /.main -->
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+/* ================================================================
+   CONFIGURATION
+   ─────────────────────────────────────────────────────────────────
+   1. Go to https://supabase.com and create a FREE project.
+   2. In your Supabase dashboard → Settings → API, copy:
+        • Project URL  →  paste into SUPABASE_URL below
+        • anon/public key  →  paste into SUPABASE_ANON_KEY below
+   3. Run the SQL in SETUP.md to create the table.
+   4. Commit & push to GitHub Pages — your friends can now share ideas live!
+   ================================================================ */
+const SUPABASE_URL      = 'https://rydlbexgyegjodxcggpx.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_VskkI0oeCYCZydySQYyb1w_vvJsaM1Y';
+/* ================================================================ */
+
+// ── CATEGORY CONFIG ──────────────────────────────────────────────
+const CATS = {
+  general:    { label: '💬 General',         tagClass: 'tag-general',    cardClass: 'card-general'    },
+  activities: { label: '🎯 Things To Do',    tagClass: 'tag-activities', cardClass: 'card-activities' },
+  dates:      { label: '📅 Available Dates', tagClass: 'tag-dates',      cardClass: 'card-dates'      },
+  stay:       { label: '🏠 Places To Stay',  tagClass: 'tag-stay',       cardClass: 'card-stay'       },
+  food:       { label: '🍺 Food & Pubs',     tagClass: 'tag-food',       cardClass: 'card-food'       },
+};
+
+// ── STATE ─────────────────────────────────────────────────────────
+let supabaseClient = null;
+let currentHandle  = localStorage.getItem('ireland_handle') || '';
+let currentFilter  = 'all';
+let allMessages    = [];
+let demoMode       = false;
+
+// ── INIT ──────────────────────────────────────────────────────────
+async function init() {
+  // Show modal if no handle
+  if (!currentHandle) {
+    document.getElementById('modalOverlay').classList.remove('hidden');
+  } else {
+    document.getElementById('headerHandle').textContent = currentHandle;
+  }
+
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL_HERE') {
+    enableDemoMode();
+    return;
+  }
+
+  // Connect to Supabase
+  try {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const { data, error } = await supabaseClient
+      .from('ireland_ideas')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    allMessages = data || [];
+    renderAll();
+    setConnectionStatus(true);
+    document.getElementById('demoBanner').classList.add('hidden');
+
+    // Real-time subscription
+    supabaseClient
+      .channel('ireland_ideas_channel')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'ireland_ideas' },
+        (payload) => {
+          allMessages.push(payload.new);
+          appendChatMessage(payload.new, true);
+          renderBoard();
+        }
+      )
+      .subscribe();
+
+  } catch (err) {
+    console.error('Supabase error:', err);
+    toast('⚠️ Could not connect to Supabase – running in demo mode');
+    enableDemoMode();
+  }
+}
+
+function enableDemoMode() {
+  demoMode = true;
+  setConnectionStatus(false);
+  const stored = localStorage.getItem('ireland_demo_msgs');
+  if (stored) {
+    try { allMessages = JSON.parse(stored); } catch { allMessages = []; }
+  }
+  renderAll();
+}
+
+// ── HANDLE MANAGEMENT ─────────────────────────────────────────────
+function setHandle() {
+  const val = document.getElementById('handleInput').value.trim();
+  if (!val) { toast('Please enter a name!'); return; }
+  currentHandle = val;
+  localStorage.setItem('ireland_handle', val);
+  document.getElementById('headerHandle').textContent = val;
+  document.getElementById('modalOverlay').classList.add('hidden');
+  document.getElementById('messageInput').focus();
+}
+
+function changeHandle() {
+  document.getElementById('handleInput').value = currentHandle;
+  document.getElementById('modalOverlay').classList.remove('hidden');
+}
+
+// ── SEND MESSAGE ──────────────────────────────────────────────────
+async function sendMessage() {
+  const text = document.getElementById('messageInput').value.trim();
+  const cat  = document.getElementById('categorySelect').value;
+  if (!text) return;
+  if (!currentHandle) {
+    document.getElementById('modalOverlay').classList.remove('hidden');
+    return;
+  }
+
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+
+  const msg = {
+    handle:     currentHandle,
+    category:   cat,
+    message:    text,
+    created_at: new Date().toISOString(),
+  };
+
+  if (!demoMode && supabaseClient) {
+    // Insert into Supabase (real-time will pick it up)
+    const { error } = await supabaseClient.from('ireland_ideas').insert([msg]);
+    if (error) {
+      toast('❌ Error sending – please try again');
+      btn.disabled = false;
+      return;
+    }
+  } else {
+    // Demo: add locally
+    msg.id = Date.now().toString();
+    allMessages.push(msg);
+    appendChatMessage(msg, true);
+    renderBoard();
+    const stored = JSON.parse(localStorage.getItem('ireland_demo_msgs') || '[]');
+    stored.push(msg);
+    localStorage.setItem('ireland_demo_msgs', JSON.stringify(stored));
+  }
+
+  document.getElementById('messageInput').value = '';
+  autoResizeTextarea();
+  btn.disabled = false;
+  document.getElementById('messageInput').focus();
+}
+
+// ── RENDER ────────────────────────────────────────────────────────
+function renderAll() {
+  document.getElementById('chatFeed').innerHTML = '';
+  allMessages.forEach(m => appendChatMessage(m, false));
+  scrollChatToBottom();
+  renderBoard();
+}
+
+function appendChatMessage(msg, doScroll) {
+  const feed  = document.getElementById('chatFeed');
+  const isOwn = msg.handle === currentHandle;
+  const cat   = CATS[msg.category] || CATS.general;
+  const time  = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const div = document.createElement('div');
+  div.className = `chat-msg ${isOwn ? 'own' : 'other'}`;
+  div.innerHTML = `
+    <div class="msg-meta">
+      ${!isOwn ? `<span class="msg-handle">${esc(msg.handle)}</span>` : ''}
+      <span class="cat-tag ${cat.tagClass}">${cat.label}</span>
+      ${isOwn ? `<span class="msg-handle">You</span>` : ''}
+    </div>
+    <div class="bubble">${esc(msg.message)}</div>
+    <div class="msg-time">${time}</div>
+  `;
+  feed.appendChild(div);
+  if (doScroll) scrollChatToBottom();
+}
+
+function renderBoard() {
+  const board    = document.getElementById('boardContent');
+  const filtered = currentFilter === 'all'
+    ? allMessages
+    : allMessages.filter(m => m.category === currentFilter);
+
+  document.getElementById('boardCount').textContent =
+    `${filtered.length} idea${filtered.length !== 1 ? 's' : ''}`;
+
+  if (filtered.length === 0) {
+    const catLabel = currentFilter === 'all'
+      ? 'any category'
+      : (CATS[currentFilter]?.label || currentFilter);
+    board.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🗺️</div>
+        <h3>No ideas yet for ${catLabel}</h3>
+        <p>Be the first to share a suggestion in the chat!</p>
+      </div>`;
+    return;
+  }
+
+  board.innerHTML = '';
+  [...filtered].reverse().forEach(msg => {
+    const cat  = CATS[msg.category] || CATS.general;
+    const date = new Date(msg.created_at);
+    const timeStr = date.toLocaleString([], {
+      month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+
+    const card = document.createElement('div');
+    card.className = `idea-card ${cat.cardClass}`;
+    card.innerHTML = `
+      <div class="card-top">
+        <div class="card-handle">☘️ ${esc(msg.handle)}</div>
+        <div class="card-time">${timeStr}</div>
+      </div>
+      <div class="card-text">${esc(msg.message)}</div>
+      <div class="card-footer">
+        <span class="cat-tag ${cat.tagClass}">${cat.label}</span>
+      </div>
+    `;
+    board.appendChild(card);
+  });
+}
+
+function filterBoard(cat) {
+  currentFilter = cat;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${cat}`).classList.add('active');
+  renderBoard();
+}
+
+// ── UI HELPERS ────────────────────────────────────────────────────
+function scrollChatToBottom() {
+  const f = document.getElementById('chatFeed');
+  f.scrollTop = f.scrollHeight;
+}
+
+function setConnectionStatus(online) {
+  const dot   = document.getElementById('liveDot');
+  const label = document.getElementById('liveLabel');
+  if (online) {
+    dot.classList.remove('offline-dot');
+    label.textContent = 'Live';
+  } else {
+    dot.classList.add('offline-dot');
+    label.textContent = demoMode ? 'Demo mode' : 'Offline';
+  }
+}
+
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('fade-out');
+    setTimeout(() => el.remove(), 400);
+  }, 3200);
+}
+
+function esc(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function autoResizeTextarea() {
+  const ta = document.getElementById('messageInput');
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight, 110) + 'px';
+}
+
+// ── EVENT LISTENERS ───────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('messageInput');
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  input.addEventListener('input', autoResizeTextarea);
+
+  document.getElementById('handleInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') setHandle();
+  });
+
+  init();
+});
+</script>
+
+</body>
+</html>
